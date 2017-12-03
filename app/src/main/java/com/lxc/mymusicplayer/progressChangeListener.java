@@ -17,7 +17,6 @@ public class progressChangeListener implements SeekBar.OnSeekBarChangeListener {
 
 	@Override
 	public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-
 	}
 
 	@Override

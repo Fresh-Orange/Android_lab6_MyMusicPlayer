@@ -67,8 +67,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		btStop.setOnClickListener(this);
 		btQuit.setOnClickListener(this);
 		sbMusic = findViewById(R.id.sb_music);
-		progressChangeListener progressListener = new progressChangeListener(musicBinder);
-		sbMusic.setOnSeekBarChangeListener(progressListener);
 		imageView = findViewById(R.id.iv_image);
 
 		permissionHelper.requestPermission();
@@ -95,6 +93,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 					updateViews(StateEnum.PAUSE);
 				break;
 			case R.id.bt_stop:
+				//只有正在播放的时候才stop
+				if (musicBinder.getState() != MusicService.StateEnum.PLAY)
+					return;
 				try {
 					musicBinder.transact(2, Parcel.obtain(), Parcel.obtain(), 0);
 					updateViews(StateEnum.STOP);
@@ -163,6 +164,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		@Override
 		public void onServiceConnected(ComponentName name, IBinder service) {
 			musicBinder = (MusicService.MusicBinder) service;
+
+			//因为progressChangeListener里面要和service通信，所以绑定之后开始监听
+			progressChangeListener progressListener = new progressChangeListener(musicBinder);
+			sbMusic.setOnSeekBarChangeListener(progressListener);
 
 			//因为线程里面要和service通信，所以绑定之后才开启线程
 			updateThread = new Thread(new connectRunnable(musicBinder, progressHandler));
