@@ -1,12 +1,9 @@
 package com.lxc.mymusicplayer;
 
-import android.Manifest;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.ComponentName;
-import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -14,8 +11,6 @@ import android.os.Message;
 import android.os.Parcel;
 import android.os.RemoteException;
 import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
@@ -23,12 +18,11 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener,SeekBar.OnSeekBarChangeListener{
+public class MainActivity extends AppCompatActivity implements View.OnClickListener{
 	private TextView tvCurTime;
 	private TextView tvWholeTime;
 	private Button btPlay, btStop, btQuit;
@@ -38,30 +32,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private MusicService.MusicBinder musicBinder;
 	private boolean isPause = true;
 	ObjectAnimator rotationAnimator;
-	SimpleDateFormat formater = new SimpleDateFormat("mm:ss");
+	SimpleDateFormat formatter = new SimpleDateFormat("mm:ss");
 	enum StateEnum {PLAY,PAUSE,STOP}
-	//final String CUR_TIME_KEY = "CURRENT_TIME";
+	permissionHelper permissionHelper = new permissionHelper(this);
 
-
-	@Override
-	public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-
-	}
-
-	@Override
-	public void onStartTrackingTouch(SeekBar seekBar) {
-	}
-
-	@Override
-	public void onStopTrackingTouch(SeekBar seekBar) {
-		try {
-			Parcel parcel = Parcel.obtain();
-			parcel.writeFloat(((float)seekBar.getProgress())/100);
-			musicBinder.transact(4,parcel , Parcel.obtain(), 0);
-		} catch (RemoteException e) {
-			e.printStackTrace();
-		}
-	}
 
 	class  ProgressHandler extends Handler{
 		@Override
@@ -70,7 +44,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			if (msg.what == 666){
 				 sbMusic.setProgress(msg.arg1);
 				 int curTime = msg.arg2;
-				 tvCurTime.setText(formater.format(new Date(curTime)));
+				 tvCurTime.setText(formatter.format(new Date(curTime)));
 			}
 		}
 	}
@@ -110,37 +84,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		btStop.setOnClickListener(this);
 		btQuit.setOnClickListener(this);
 		sbMusic = findViewById(R.id.sb_music);
-		sbMusic.setOnSeekBarChangeListener(this);
+		progressChangeListener progressListener = new progressChangeListener(musicBinder);
+		sbMusic.setOnSeekBarChangeListener(progressListener);
 		imageView = findViewById(R.id.iv_image);
 
-		requestPermission();
+		permissionHelper.requestPermission();
 	}
 
-	private void requestPermission() {
-		if (ContextCompat.checkSelfPermission(MainActivity.this,
-				Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
-			ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
-		}
-		else{
-			startAndBingService();
-		}
-	}
-
-	private void startAndBingService() {
-		Intent serviceIntent =  new Intent(this, MusicService.class);
-		startService(serviceIntent);
-		bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);
-	}
 
 	@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-		if (grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED){
-			startAndBingService();
-		}
-		else{
-			Toast.makeText(this, "拒绝权限，无法使用程序",Toast.LENGTH_SHORT).show();
-			finish();
-		}
+		permissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults);
 	}
 
 	@Override
@@ -201,6 +155,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			btPlay.setText("Play");
 			if (rotationAnimator != null && rotationAnimator.isRunning())
 				rotationAnimator.end();
+				imageView.setRotation(0);//让角度停在停的时候
 		}
 	}
 
@@ -220,7 +175,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			musicBinder = (MusicService.MusicBinder) service;
 			updateThread.start();
 			int musicLength = musicBinder.getMusicLength();
-			tvWholeTime.setText(formater.format(new Date(musicLength)));
+			tvWholeTime.setText(formatter.format(new Date(musicLength)));
 			if (musicBinder.getState()==MusicService.StateEnum.PLAY){
 				isPause = true;
 				updateViews(btPlay, StateEnum.PLAY);
@@ -239,4 +194,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 		}
 	};
+
+	public ServiceConnection getServiceConnection() {
+		return serviceConnection;
+	}
 }
