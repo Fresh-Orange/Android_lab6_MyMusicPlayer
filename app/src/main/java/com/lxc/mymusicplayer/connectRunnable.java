@@ -3,7 +3,6 @@ package com.lxc.mymusicplayer;
 import android.os.Message;
 import android.os.Parcel;
 import android.os.RemoteException;
-import android.util.Log;
 
 /**
  * Created by LaiXiancheng on 2017/12/3.
@@ -34,8 +33,8 @@ public class connectRunnable implements Runnable {
 				message.what = 666;
 				message.arg1 = ((int)(curTime*1.0/length*100));
 				message.arg2 = curTime;
-				Log.d("runmessage", ""+message.arg1+" "+message.arg2);
 				progressHandler.sendMessage(message);
+
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();

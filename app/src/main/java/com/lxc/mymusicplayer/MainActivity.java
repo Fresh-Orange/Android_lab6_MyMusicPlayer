@@ -14,6 +14,7 @@ import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
+import android.view.animation.RotateAnimation;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.SeekBar;
@@ -28,7 +29,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	private Button btPlay, btStop, btQuit;
 	private TextView tvHint;
 	private SeekBar sbMusic;
-	private ImageView imageView;
+	private ImageView imageView, ivStylus;
 	private MusicService.MusicBinder musicBinder;
 	private boolean isPause = true;
 	ObjectAnimator rotationAnimator;
@@ -68,6 +69,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		btQuit.setOnClickListener(this);
 		sbMusic = findViewById(R.id.sb_music);
 		imageView = findViewById(R.id.iv_image);
+		ivStylus = findViewById(R.id.stylus);
 
 		permissionHelper.requestPermission();
 	}
@@ -126,6 +128,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			btPlay.setText("Pause");
 			tvHint.setText("Playing...");
 			startRotationAnim();
+			rotateStylus(-30f, 0f);
 		}
 		else if (state == StateEnum.PAUSE){
 			isPause = true;
@@ -135,6 +138,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 				float cur_rotation = (Float) rotationAnimator.getAnimatedValue();
 				rotationAnimator.end();
 				imageView.setRotation(cur_rotation);//让角度停在停的时候
+				rotateStylus(ivStylus.getRotation(), -30f);
 			}
 		}
 		else if (state == StateEnum.STOP){
@@ -144,7 +148,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			if (rotationAnimator != null && rotationAnimator.isRunning())
 				rotationAnimator.end();
 				imageView.setRotation(0);//让角度恢复0度
+				rotateStylus(ivStylus.getRotation(), -30f);
 		}
+	}
+
+	private void rotateStylus(float fromDegrees, float toDegrees){
+		final RotateAnimation rotateAnim = new RotateAnimation(fromDegrees, toDegrees,
+				50f, 0f);
+		rotateAnim.setDuration(500);
+		rotateAnim.setFillAfter(true);
+		ivStylus.setAnimation(rotateAnim);
+		rotateAnim.start();
 	}
 
 	/**

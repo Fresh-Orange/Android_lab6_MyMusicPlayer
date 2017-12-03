@@ -7,7 +7,6 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
-import android.util.Log;
 
 import java.io.IOException;
 
@@ -17,9 +16,7 @@ public class MusicService extends Service {
 	public enum StateEnum {PLAY,PAUSE,STOP}
 	private StateEnum curState;
 	public MusicService() {
-
 	}
-
 	@Override
 	public IBinder onBind(Intent intent) {
 		try {
@@ -33,10 +30,10 @@ public class MusicService extends Service {
 	}
 
 	class MusicBinder extends Binder{
-
 		@Override
 		protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
 			switch (code){
+				//暂停或者播放
 				case 1:
 					if (mp.isPlaying()){
 						mp.pause();
@@ -47,22 +44,24 @@ public class MusicService extends Service {
 						curState = StateEnum.PLAY;
 					}
 					break;
+				//停止音乐
 				case 2:
 					mp.seekTo(0);
 					mp.pause();
 					curState = StateEnum.STOP;
 					break;
+				//完全退出
 				case 3:
 					mp.stop();
 					mp.release();
 					stopSelf();
 					break;
+				//拖动滑动条
 				case 4:
 					float progress = data.readFloat();
-					Log.d("drag", String.valueOf(progress));
 					mp.seekTo(((int)(progress*mp.getDuration())));
-					Log.d("drag", String.valueOf(((int)(progress*mp.getDuration()))));
 					break;
+				//获取现在的音乐位置以及音乐总长度
 				case 5:
 					int curTime = mp.getCurrentPosition();
 					int length = mp.getDuration();
