@@ -35,8 +35,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 	SimpleDateFormat formatter = new SimpleDateFormat("mm:ss");
 	enum StateEnum {PLAY,PAUSE,STOP}
 	permissionHelper permissionHelper = new permissionHelper(this);
+	Thread updateThread;
 
-
+	/**
+	 * 线程获得数据之后，由Hander更新界面
+	 */
 	class  ProgressHandler extends Handler{
 		@Override
 		public void handleMessage(Message msg) {
@@ -48,32 +51,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			}
 		}
 	}
-
 	final ProgressHandler progressHandler = new ProgressHandler();
-
-	Thread updateThread = new Thread(new Runnable() {
-		@Override
-		public void run() {
-			while (true){
-				try {
-					Parcel timeReply = Parcel.obtain();
-					musicBinder.transact(5, Parcel.obtain(), timeReply, 0);
-					int curTime = timeReply.readInt();
-					int length = timeReply.readInt();
-					Message message = new Message();
-					message.what = 666;
-					message.arg1 = ((int)(curTime*1.0/length*100));
-					message.arg2 = curTime;
-					progressHandler.sendMessage(message);
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				} catch (RemoteException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	});
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -111,13 +89,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 				} catch (RemoteException e) {
 					e.printStackTrace();
 				}
-				updateViews((Button) v, StateEnum.PLAY);
-
+				if (isPause)
+					updateViews(StateEnum.PLAY);
+				else
+					updateViews(StateEnum.PAUSE);
 				break;
 			case R.id.bt_stop:
 				try {
 					musicBinder.transact(2, Parcel.obtain(), Parcel.obtain(), 0);
-					updateViews((Button) v, StateEnum.STOP);
+					updateViews(StateEnum.STOP);
 				} catch (RemoteException e) {
 					e.printStackTrace();
 				}
@@ -135,23 +115,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		}
 	}
 
-	private void updateViews(Button v, StateEnum state) {
+	/**
+	 * 根据不同状态更新界面
+	 * @param state 新的状态
+	 */
+	private void updateViews(StateEnum state) {
 		if (state == StateEnum.PLAY){
-			if (isPause){
-				isPause = false;
-				v.setText("Pause");
-				tvHint.setText("Playing...");
-				startRotationAnim();
-			}
-			else{
-				isPause = true;
-				v.setText("Play");
-				tvHint.setText("Paused!");
-				if (rotationAnimator != null && rotationAnimator.isRunning()){
-					float cur_rotation = (Float) rotationAnimator.getAnimatedValue();
-					rotationAnimator.end();
-					imageView.setRotation(cur_rotation);//让角度停在停的时候
-				}
+			isPause = false;
+			btPlay.setText("Pause");
+			tvHint.setText("Playing...");
+			startRotationAnim();
+		}
+		else if (state == StateEnum.PAUSE){
+			isPause = true;
+			btPlay.setText("Play");
+			tvHint.setText("Paused!");
+			if (rotationAnimator != null && rotationAnimator.isRunning()){
+				float cur_rotation = (Float) rotationAnimator.getAnimatedValue();
+				rotationAnimator.end();
+				imageView.setRotation(cur_rotation);//让角度停在停的时候
 			}
 		}
 		else if (state == StateEnum.STOP){
@@ -160,15 +142,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			btPlay.setText("Play");
 			if (rotationAnimator != null && rotationAnimator.isRunning())
 				rotationAnimator.end();
-				imageView.setRotation(0);//让角度停在停的时候
+				imageView.setRotation(0);//让角度恢复0度
 		}
 	}
 
+	/**
+	 * 开启旋转动画
+	 */
 	private void startRotationAnim() {
 		//这里的360如果不加上imageView.getRotation()的话动画重复的时候会产生跳跃
 		rotationAnimator = ObjectAnimator.ofFloat(imageView,"rotation",
 				imageView.getRotation(),360f+imageView.getRotation());
-		rotationAnimator.setDuration(5000);
+		rotationAnimator.setDuration(10000);
 		rotationAnimator.setRepeatCount(ValueAnimator.INFINITE);
 		rotationAnimator.setInterpolator(new LinearInterpolator());
 		rotationAnimator.start();
@@ -178,7 +163,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		@Override
 		public void onServiceConnected(ComponentName name, IBinder service) {
 			musicBinder = (MusicService.MusicBinder) service;
+
+			//因为线程里面要和service通信，所以绑定之后才开启线程
+			updateThread = new Thread(new connectRunnable(musicBinder, progressHandler));
 			updateThread.start();
+
+			//获得音乐总时间
 			Parcel timeReply = Parcel.obtain();
 			try {
 				musicBinder.transact(5, Parcel.obtain(), timeReply, 0);
@@ -188,16 +178,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 			timeReply.setDataPosition(4);//第二个数（length）的位置，因为int是4字节
 			int musicLength = timeReply.readInt();
 			tvWholeTime.setText(formatter.format(new Date(musicLength)));
+
+			//获取当前状态，根据当前状态更新界面
+			//原因：有可能app关闭之后重新打开，因为音乐是能后台播放的，那么这时候音乐的状态有这三种可能
 			if (musicBinder.getState()==MusicService.StateEnum.PLAY){
-				isPause = true;
-				updateViews(btPlay, StateEnum.PLAY);
+				updateViews(StateEnum.PLAY);
 			}
 			else if (musicBinder.getState()==MusicService.StateEnum.PAUSE){
-				isPause = false;
-				updateViews(btPlay, StateEnum.PLAY);
+				updateViews(StateEnum.PAUSE);
 			}
 			else{
-				updateViews(btStop, StateEnum.STOP);
+				updateViews(StateEnum.STOP);
 			}
 		}
 
@@ -209,5 +200,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 	public ServiceConnection getServiceConnection() {
 		return serviceConnection;
+	}
+
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		unbindService(serviceConnection);
 	}
 }

@@ -14,7 +14,7 @@ import java.io.IOException;
 public class MusicService extends Service {
 	private MusicBinder musicBinder = new MusicBinder();
 	private MediaPlayer mp = new MediaPlayer();
-	static public enum StateEnum {PLAY,PAUSE,STOP}
+	public enum StateEnum {PLAY,PAUSE,STOP}
 	private StateEnum curState;
 	public MusicService() {
 
@@ -29,7 +29,6 @@ public class MusicService extends Service {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		//mp = MediaPlayer.create(this, R.raw.fa);
 		return musicBinder;
 	}
 
