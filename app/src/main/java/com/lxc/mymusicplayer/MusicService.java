@@ -64,17 +64,19 @@ public class MusicService extends Service {
 					mp.seekTo(((int)(progress*mp.getDuration())));
 					Log.d("drag", String.valueOf(((int)(progress*mp.getDuration()))));
 					break;
+				case 5:
+					int curTime = mp.getCurrentPosition();
+					int length = mp.getDuration();
+					reply.writeInt(curTime);
+					reply.writeInt(length);
+					reply.setDataPosition(0);//设置偏移量为0，待会读的时候就能从头读
+					break;
+				default:
 
 			}
 			return super.onTransact(code, data, reply, flags);
 		}
 
-		public int getMusicLength(){
-			return mp.getDuration();
-		}
-		public int getCurTime(){
-			return mp.getCurrentPosition();
-		}
 		public StateEnum getState(){
 			return curState;
 		}

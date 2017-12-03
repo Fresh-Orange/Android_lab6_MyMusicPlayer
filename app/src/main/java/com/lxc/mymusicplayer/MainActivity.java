@@ -56,14 +56,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		public void run() {
 			while (true){
 				try {
-					int curTime = musicBinder.getCurTime();
+					Parcel timeReply = Parcel.obtain();
+					musicBinder.transact(5, Parcel.obtain(), timeReply, 0);
+					int curTime = timeReply.readInt();
+					int length = timeReply.readInt();
 					Message message = new Message();
 					message.what = 666;
-					message.arg1 = ((int)(curTime*1.0/musicBinder.getMusicLength()*100));
+					message.arg1 = ((int)(curTime*1.0/length*100));
 					message.arg2 = curTime;
 					progressHandler.sendMessage(message);
 					Thread.sleep(1000);
 				} catch (InterruptedException e) {
+					e.printStackTrace();
+				} catch (RemoteException e) {
 					e.printStackTrace();
 				}
 			}
@@ -174,7 +179,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 		public void onServiceConnected(ComponentName name, IBinder service) {
 			musicBinder = (MusicService.MusicBinder) service;
 			updateThread.start();
-			int musicLength = musicBinder.getMusicLength();
+			Parcel timeReply = Parcel.obtain();
+			try {
+				musicBinder.transact(5, Parcel.obtain(), timeReply, 0);
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
+			timeReply.setDataPosition(4);//第二个数（length）的位置，因为int是4字节
+			int musicLength = timeReply.readInt();
 			tvWholeTime.setText(formatter.format(new Date(musicLength)));
 			if (musicBinder.getState()==MusicService.StateEnum.PLAY){
 				isPause = true;
